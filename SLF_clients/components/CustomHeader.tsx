@@ -9,39 +9,77 @@ export default function CustomHeader(props: DrawerHeaderProps) {
   const title = options.title || route.name;
 
   return (
-    // Use SafeAreaView to avoid the phone's notch
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.headerContainer}>
-        {/* The Menu button */}
-        <DrawerToggleButton tintColor="#fff" />
+      <View style={styles.headerWrapper}>
+        <View style={styles.headerContainer}>
+          {/* The Menu button with background */}
+          <View style={styles.menuButton}>
+            <DrawerToggleButton tintColor="#fff" />
+          </View>
+          
+          {/* The Title - centered */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+          
+          {/* Spacer for balance */}
+          <View style={styles.spacer} />
+        </View>
         
-        {/* The Title */}
-        <Text style={styles.title}>{title}</Text>
-        
-        {/* This empty view helps center the title properly */}
-        <View style={{ width: 50 }} />
+        {/* Our Progress Bar */}
+        <PhaseProgressBar currentPhaseName={route.name} />
       </View>
-      
-      {/* Our new Progress Bar */}
-      <PhaseProgressBar currentPhaseName={route.name} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#f4511e", // Set background color for the whole safe area
+    backgroundColor: "#000080",
+  },
+  headerWrapper: {
+    backgroundColor: "#000080",
+    paddingBottom: 8,
+    // Add a subtle shadow at the bottom
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
   },
   headerContainer: {
-    height: 60,
+    height: 64,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
+  },
+  menuButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
   title: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  spacer: {
+    width: 44,
   },
 });
