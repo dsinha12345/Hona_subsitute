@@ -9,20 +9,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
-        // Use our CustomHeader component for ALL screens
-        header={(props) => <CustomHeader {...props} />}
-
         screenOptions={{
-          // We still define these so the drawer itself is styled
+          // Use our CustomHeader component for ALL screens - MOVED HERE
+          header: (props) => <CustomHeader {...props} />,
+          
+          // Drawer styling
           drawerActiveTintColor: "#f4511e",
           drawerInactiveTintColor: "#333",
           drawerLabelStyle: {
-            marginLeft: -20,
+            marginLeft: 0,
           },
           
-          // These header styles are now applied by our custom component,
-          // but we keep them here so React Navigation can pass them
-          // as 'options' to our CustomHeader.
+          // Header styles (these get passed to CustomHeader as 'options')
           headerStyle: {
             backgroundColor: "#f4511e",
           },
@@ -36,7 +34,7 @@ export default function RootLayout() {
         {ALL_SCREENS.map((screen) => (
           <Drawer.Screen
             key={screen.name}
-            name={screen.name} // e.g., "index" or "phases/phase1"
+            name={screen.name} // e.g., "index" or "Phases/phase1"
             options={{
               title: screen.label, // e.g., "Dashboard" or "Phase 1: Intake"
               drawerLabel: screen.label,
