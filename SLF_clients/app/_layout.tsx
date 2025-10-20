@@ -1,29 +1,28 @@
-import "react-native-gesture-handler"; // Must be at the top
+import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Drawer } from "expo-router/drawer";
-import { Ionicons } from "@expo/vector-icons"; // For icons
-
-// Your 10 case phases
-const CASE_PHASES = [
-  { name: "index", label: "Dashboard", icon: "home-outline" },
-  { name: "phases/phase1", label: "Phase 1: Intake", icon: "clipboard-outline" },
-  { name: "phases/phase2", label: "Phase 2: Discovery", icon: "search-outline" },
-  { name: "phases/phase3", label: "Phase 3: Strategy", icon: "bulb-outline" },
-  { name: "phases/phase4", label: "Phase 4: Pre-Trial", icon: "shield-outline" },
-  { name: "phases/phase5", label: "Phase 5: Trial", icon: "briefcase-outline" },
-  { name: "phases/phase6", label: "Phase 6: Verdict", icon: "gavel-outline" },
-  { name: "phases/phase7", label: "Phase 7: Settlement", icon: "document-text-outline" },
-  { name: "phases/phase8", label: "Phase 8: Appeal", icon: "arrow-up-outline" },
-  { name: "phases/phase9", label: "Phase 9: Resolution", icon: "checkmark-circle-outline" },
-  { name: "phases/phase10", label: "Phase 10: Case Closed", icon: "lock-closed-outline" },
-];
+import { Ionicons } from "@expo/vector-icons";
+import { ALL_SCREENS } from "../constants/phases"; // Import our new constant
+import CustomHeader from "../components/CustomHeader"; // Import our new header
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
+        // Use our CustomHeader component for ALL screens
+        header={(props) => <CustomHeader {...props} />}
+
         screenOptions={{
-          // This styles the header for all screens
+          // We still define these so the drawer itself is styled
+          drawerActiveTintColor: "#f4511e",
+          drawerInactiveTintColor: "#333",
+          drawerLabelStyle: {
+            marginLeft: -20,
+          },
+          
+          // These header styles are now applied by our custom component,
+          // but we keep them here so React Navigation can pass them
+          // as 'options' to our CustomHeader.
           headerStyle: {
             backgroundColor: "#f4511e",
           },
@@ -31,24 +30,18 @@ export default function RootLayout() {
           headerTitleStyle: {
             fontWeight: "bold",
           },
-          // This styles the drawer content
-          drawerActiveTintColor: "#f4511e",
-          drawerInactiveTintColor: "#333",
-          drawerLabelStyle: {
-            marginLeft: -20, // Adjust icon/label spacing
-          },
         }}
       >
-        {/* Map over your phases to create drawer screens */}
-        {CASE_PHASES.map((phase) => (
+        {/* Map over ALL screens */}
+        {ALL_SCREENS.map((screen) => (
           <Drawer.Screen
-            key={phase.name}
-            name={phase.name}
+            key={screen.name}
+            name={screen.name} // e.g., "index" or "phases/phase1"
             options={{
-              title: phase.label, // This sets the header title
-              drawerLabel: phase.label, // This is the text in the drawer
+              title: screen.label, // e.g., "Dashboard" or "Phase 1: Intake"
+              drawerLabel: screen.label,
               drawerIcon: ({ color, size }) => (
-                <Ionicons name={phase.icon as any} size={size} color={color} />
+                <Ionicons name={screen.icon} size={size} color={color} />
               ),
             }}
           />
