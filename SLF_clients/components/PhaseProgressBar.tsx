@@ -1,13 +1,18 @@
 import { View, Text, StyleSheet } from "react-native";
 import React from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { PHASE_SCREENS } from "@/constants/phases";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useUser } from "../contexts/UserContext";
 
 type Props = {
   currentPhaseName: string;
 };
 
 export default function PhaseProgressBar({ currentPhaseName }: Props) {
+  const { t } = useLanguage();
+  const { user } = useUser();
+  
   // Don't render anything if we're on the dashboard
   if (currentPhaseName === "index") {
     return null;
@@ -23,8 +28,9 @@ export default function PhaseProgressBar({ currentPhaseName }: Props) {
     return null;
   }
 
-  // Calculate progress percentage
-  const progressPercentage = ((currentPhaseIndex + 1) / PHASE_SCREENS.length) * 100;
+  // Calculate progress percentage based on user's actual progress
+  const userCurrentPhase = user?.currentPhase || 1;
+  const progressPercentage = (userCurrentPhase / PHASE_SCREENS.length) * 100;
 
   return (
     <View style={styles.container}>
@@ -44,7 +50,8 @@ export default function PhaseProgressBar({ currentPhaseName }: Props) {
         <View style={styles.dotsContainer}>
           {PHASE_SCREENS.map((phase, index) => {
             const isActive = index === currentPhaseIndex;
-            const isCompleted = index < currentPhaseIndex;
+            const isCompleted = index < userCurrentPhase - 1;
+            const isCurrentUserPhase = index === userCurrentPhase - 1;
 
             return (
               <View key={phase.name} style={styles.dotWrapper}>
@@ -52,11 +59,13 @@ export default function PhaseProgressBar({ currentPhaseName }: Props) {
                   style={[
                     styles.dot,
                     isCompleted && styles.dotCompleted,
-                    isActive && styles.dotActive,
+                    (isCurrentUserPhase || isActive) && styles.dotCurrentUserPhase,
                   ]}
                 >
-                  {/* Inner dot for active state */}
-                  {isActive && <View style={styles.dotInner} />}
+                  {/* Checkmark for completed phases */}
+                  {isCompleted && (
+                    <Ionicons name="checkmark" size={10} color="#fff" />
+                  )}
                 </View>
               </View>
             );
@@ -67,11 +76,11 @@ export default function PhaseProgressBar({ currentPhaseName }: Props) {
       {/* Phase Label with better styling */}
       <View style={styles.labelContainer}>
         <Text style={styles.phaseLabel}>
-          Phase {currentPhaseIndex + 1} of {PHASE_SCREENS.length}
+          {t(`phase.short.${currentPhaseIndex + 1}`)}
         </Text>
         <View style={styles.progressBadge}>
           <Text style={styles.progressPercentage}>
-            {Math.round(progressPercentage)}%
+            {currentPhaseIndex + 1}/{PHASE_SCREENS.length}
           </Text>
         </View>
       </View>
@@ -132,21 +141,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dotCompleted: {
-    backgroundColor: "#fff",
-    borderColor: "#fff",
-    shadowColor: "#fff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
+  },
+  dotCurrentUserPhase: {
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
+    transform: [{ scale: 1.3 }],
   },
   dotActive: {
     backgroundColor: "#fff",
     borderColor: "#fff",
     transform: [{ scale: 1.4 }],
-    shadowColor: "#fff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
   },
   dotInner: {
     width: 5,
