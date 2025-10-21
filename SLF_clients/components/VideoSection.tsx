@@ -74,6 +74,7 @@ export default function VideoSection({
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
   const scrollViewRef = useRef<ScrollView>(null);
   const videoRefs = useRef<{ [key: string]: View | null }>({});
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   // Load watched videos from localStorage on mount
   useEffect(() => {
