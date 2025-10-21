@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 export type ScreenConfig = {
   name: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap; // Use keyof for type safety
+  icon: keyof typeof Ionicons.glyphMap;
 };
 
 // Define the Dashboard screen separately
@@ -14,18 +14,23 @@ export const DASHBOARD_SCREEN: ScreenConfig = {
   icon: "home-outline",
 };
 
-// Define the 10 phase screens - FIXED: Capital P in "Phases"
+// Define the 15 phase screens
 export const PHASE_SCREENS: ScreenConfig[] = [
-  { name: "Phases/phase1", label: "Phase 1: Intake", icon: "clipboard-outline" },
-  { name: "Phases/phase2", label: "Phase 2: Discovery", icon: "search-outline" },
-  { name: "Phases/phase3", label: "Phase 3: Strategy", icon: "bulb-outline" },
-  { name: "Phases/phase4", label: "Phase 4: Pre-Trial", icon: "shield-outline" },
-  { name: "Phases/phase5", label: "Phase 5: Trial", icon: "briefcase-outline" },
-  { name: "Phases/phase6", label: "Phase 6: Verdict", icon: "arrow-up-outline" },
-  { name: "Phases/phase7", label: "Phase 7: Settlement", icon: "document-text-outline" },
-  { name: "Phases/phase8", label: "Phase 8: Appeal", icon: "arrow-up-outline" },
-  { name: "Phases/phase9", label: "Phase 9: Resolution", icon: "checkmark-circle-outline" },
-  { name: "Phases/phase10", label: "Phase 10: Case Closed", icon: "lock-closed-outline" },
+  { name: "Phases/phase1", label: "Phase 1: Investigation", icon: "search-outline" },
+  { name: "Phases/phase2", label: "Phase 2: Property Damage", icon: "car-outline" },
+  { name: "Phases/phase3", label: "Phase 3: Treatment", icon: "medical-outline" },
+  { name: "Phases/phase4", label: "Phase 4: Demand Preparation", icon: "document-text-outline" },
+  { name: "Phases/phase5", label: "Phase 5: Negotiation and Insurance", icon: "cash-outline" },
+  { name: "Phases/phase6", label: "Phase 6: Case Transfer to Litigation", icon: "swap-horizontal-outline" },
+  { name: "Phases/phase7", label: "Phase 7: Lawsuit Filed", icon: "document-attach-outline" },
+  { name: "Phases/phase8", label: "Phase 8: Discovery", icon: "document-attach-outline" },
+  { name: "Phases/phase9", label: "Phase 9: Depositions", icon: "mic-outline" },
+  { name: "Phases/phase10", label: "Phase 10: Mediation", icon: "people-outline" },
+  { name: "Phases/phase11", label: "Phase 11: Trial Preparation", icon: "briefcase-outline" },
+  { name: "Phases/phase12", label: "Phase 12: Appeal", icon: "arrow-up-circle-outline" },
+  { name: "Phases/phase13", label: "Phase 13: Subrogations and Liens", icon: "link-outline" },
+  { name: "Phases/phase14", label: "Phase 14: Payoff", icon: "card-outline" },
+  { name: "Phases/phase15", label: "Phase 15: Closing the File", icon: "checkmark-done-outline" },
 ];
 
 // Export all screens together for the layout
