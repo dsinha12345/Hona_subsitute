@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useUser } from "../contexts/UserContext";
 
 export type VideoItem = {
   id: string; // Unique identifier for the video
@@ -69,7 +70,10 @@ export default function VideoSection({
   phaseNumber 
 }: VideoSectionProps) {
   const { language, t } = useLanguage();
+  const { user, updateLastWatchedVideo } = useUser();
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
+  const scrollViewRef = useRef<ScrollView>(null);
+  const videoRefs = useRef<{ [key: string]: View | null }>({});
 
   // Load watched videos from localStorage on mount
   useEffect(() => {
@@ -84,6 +88,27 @@ export default function VideoSection({
       }
     }
   }, [phaseNumber]);
+
+  // Scroll to last watched video if on the same phase
+  useEffect(() => {
+    if (user?.lastWatchedVideo?.phaseNumber === phaseNumber) {
+      const lastVideoId = user.lastWatchedVideo.videoId;
+      // Small delay to ensure refs are set
+      setTimeout(() => {
+        const videoRef = videoRefs.current[lastVideoId];
+        if (videoRef && scrollViewRef.current) {
+          videoRef.measureLayout(
+            // @ts-ignore - findNodeHandle is available
+            scrollViewRef.current.getInnerViewNode?.() || scrollViewRef.current,
+            (x, y) => {
+              scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+            },
+            () => console.log('Failed to measure video position')
+          );
+        }
+      }, 500);
+    }
+  }, [user?.lastWatchedVideo, phaseNumber]);
 
   // Save watched videos to localStorage whenever it changes
   useEffect(() => {
@@ -100,17 +125,15 @@ export default function VideoSection({
         newSet.delete(videoId);
       } else {
         newSet.add(videoId);
+        // Update last watched video when user checks a video
+        updateLastWatchedVideo(phaseNumber, videoId);
       }
       return newSet;
     });
   };
 
-  const completionPercentage = videos.length > 0 
-    ? Math.round((watchedVideos.size / videos.length) * 100)
-    : 0;
-
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView ref={scrollViewRef} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.phaseTitle}>{phaseTitle[language]}</Text>
         <Text style={styles.phaseDescription}>{phaseDescription[language]}</Text>
@@ -118,12 +141,31 @@ export default function VideoSection({
 
       {videos.map((video, index) => {
         const isWatched = watchedVideos.has(video.id);
+        const isLastWatched = user?.lastWatchedVideo?.videoId === video.id && 
+                              user?.lastWatchedVideo?.phaseNumber === phaseNumber;
         
         return (
-          <View key={video.id} style={styles.videoCard}>
+          <View 
+            key={video.id} 
+            ref={(ref) => { videoRefs.current[video.id] = ref; }}
+            style={[
+              styles.videoCard,
+              isLastWatched && styles.videoCardHighlighted
+            ]}
+          >
             {/* Video Title */}
             <View style={styles.videoHeader}>
-              <Text style={styles.videoTitle}>{video.title[language]}</Text>
+              <View style={styles.videoTitleContainer}>
+                <Text style={styles.videoTitle}>{video.title[language]}</Text>
+                {isLastWatched && (
+                  <View style={styles.lastWatchedBadge}>
+                    <Ionicons name="play-circle" size={12} color="#fff" />
+                    <Text style={styles.lastWatchedText}>
+                      {language === 'en' ? 'Continue' : 'Continuar'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.videoNumber}>
                 <Text style={styles.videoNumberText}>{index + 1}/{videos.length}</Text>
               </View>
@@ -158,7 +200,8 @@ export default function VideoSection({
         );
       })}
 
-          </ScrollView>
+      <View style={styles.bottomSpacer} />
+    </ScrollView>
   );
 }
 
@@ -192,6 +235,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
   },
+  videoCardHighlighted: {
+    borderWidth: 3,
+    borderColor: "#4CAF50",
+  },
   videoHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -199,12 +246,30 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 12,
   },
+  videoTitleContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
   videoTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#333",
-    flex: 1,
-    marginRight: 12,
+    marginBottom: 4,
+  },
+  lastWatchedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    gap: 4,
+  },
+  lastWatchedText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "600",
   },
   videoNumber: {
     backgroundColor: "#000080",
@@ -276,50 +341,7 @@ const styles = StyleSheet.create({
     color: "#333",
     fontWeight: "500",
   },
-  phaseProgressSection: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 20,
-    padding: 20,
-    borderRadius: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  progressTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#000080",
-  },
-  progressPercentage: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#4CAF50",
-  },
-  progressBarContainer: {
-    marginBottom: 8,
-  },
-  progressBarBackground: {
-    height: 12,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    backgroundColor: "#4CAF50",
-    borderRadius: 6,
-  },
-  progressSubtext: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-  },
   bottomSpacer: {
-    height: 20,
+    height: 80, // Space for fixed footer
   },
 });

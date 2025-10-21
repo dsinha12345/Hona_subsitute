@@ -5,12 +5,17 @@ type UserData = {
   currentPhase: number; // 1-15
   email?: string;
   caseNumber?: string;
+  lastWatchedVideo?: {
+    phaseNumber: number;
+    videoId: string;
+  };
 };
 
 type UserContextType = {
   user: UserData | null;
   setUser: (user: UserData | null) => void;
   updateCurrentPhase: (phase: number) => void;
+  updateLastWatchedVideo: (phaseNumber: number, videoId: string) => void;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -19,7 +24,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // HARDCODED USER DATA - Replace this with API call later
   const [user, setUser] = useState<UserData | null>({
     name: "John Doe",
-    currentPhase: 11, // User is currently in Phase 8: Discovery
+    currentPhase: 8, // User is currently in Phase 8: Discovery
     email: "john.doe@example.com",
     caseNumber: "CASE-2024-001",
   });
@@ -32,8 +37,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateLastWatchedVideo = (phaseNumber: number, videoId: string) => {
+    if (user) {
+      const updatedUser = {
+        ...user,
+        lastWatchedVideo: { phaseNumber, videoId }
+      };
+      setUser(updatedUser);
+      // Save to localStorage for persistence
+      localStorage.setItem('lastWatchedVideo', JSON.stringify({ phaseNumber, videoId }));
+      // TODO: Later, make API call to update in MongoDB
+      // await fetch('/api/user/update-last-video', { method: 'POST', body: JSON.stringify({ phaseNumber, videoId }) });
+    }
+  };
+
   return (
-    <UserContext.Provider value={{ user, setUser, updateCurrentPhase }}>
+    <UserContext.Provider value={{ user, setUser, updateCurrentPhase, updateLastWatchedVideo }}>
       {children}
     </UserContext.Provider>
   );
@@ -49,6 +68,7 @@ export function useUser() {
       user: null,
       setUser: () => {},
       updateCurrentPhase: () => {},
+      updateLastWatchedVideo: () => {},
     };
   }
   return context;
