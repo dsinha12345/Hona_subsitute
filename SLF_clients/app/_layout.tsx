@@ -5,7 +5,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { ALL_SCREENS } from "../constants/phases";
 import CustomHeader from "../components/CustomHeader";
 import { LanguageProvider, useLanguage } from "../contexts/LanguageContext";
+import { UserProvider } from "../contexts/UserContext";
 import { useMemo } from "react";
+import { Slot } from "expo-router";
 
 function DrawerLayout() {
   const { t } = useLanguage();
@@ -101,9 +103,11 @@ function DrawerLayout() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <LanguageProvider>
-        <DrawerLayout />
-      </LanguageProvider>
+      <UserProvider>
+        <LanguageProvider>
+          <DrawerLayout />
+        </LanguageProvider>
+      </UserProvider>
     </GestureHandlerRootView>
   );
 }
