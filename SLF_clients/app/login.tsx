@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#000080',
+    color: '#033966',
     marginBottom: 4,
   },
   subtitle: {
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loginButton: {
-    backgroundColor: '#000080',
+    backgroundColor: '#033966',
     height: 50,
     borderRadius: 8,
     justifyContent: 'center',
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   demoLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#000080',
+    color: '#033966',
   },
   demoText: {
     fontSize: 12,

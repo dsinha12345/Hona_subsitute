@@ -61,10 +61,10 @@ export default function CustomHeader(props: DrawerHeaderProps) {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#000080",
+    backgroundColor: "#033966",
   },
   headerWrapper: {
-    backgroundColor: "#000080",
+    backgroundColor: "#033966",
     paddingBottom: 8,
   },
   headerContainer: {

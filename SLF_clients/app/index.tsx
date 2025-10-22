@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   phaseText: {
     marginTop: 4,
     fontSize: 12,
-    color: "#000080",
+    color: "#033966",
     fontWeight: "600",
   },
 });
