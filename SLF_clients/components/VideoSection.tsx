@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useUser } from "../contexts/UserContext";
+import { storage } from "../utils/storage";
 
 export type VideoItem = {
   id: string; // Unique identifier for the video
@@ -76,10 +77,11 @@ export default function VideoSection({
   const videoRefs = useRef<{ [key: string]: View | null }>({});
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  // Load watched videos from localStorage on mount
-  useEffect(() => {
+// Load watched videos from storage on mount
+useEffect(() => {
+  const loadWatchedVideos = async () => {
     const storageKey = `phase_${phaseNumber}_watched`;
-    const stored = localStorage.getItem(storageKey);
+    const stored = await storage.getItem(storageKey);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -88,36 +90,47 @@ export default function VideoSection({
         console.error("Error loading watched videos:", e);
       }
     }
-  }, [phaseNumber]);
+  };
+  loadWatchedVideos();
+}, [phaseNumber]);
 
-  // Scroll to last watched video if on the same phase
-  useEffect(() => {
-    if (user?.lastWatchedVideo?.phaseNumber === phaseNumber) {
-      const lastVideoId = user.lastWatchedVideo.videoId;
-      // Small delay to ensure refs are set
+// Scroll to last watched video if on the same phase
+useEffect(() => {
+  if (user?.lastWatchedVideo?.phaseNumber === phaseNumber && !hasScrolled) {
+    const lastVideoId = user.lastWatchedVideo.videoId;
+    const videoIndex = videos.findIndex(v => v.id === lastVideoId);
+    
+    if (videoIndex !== -1) {
+      // Calculate approximate scroll position
+      const scrollPosition = 120 + (videoIndex * 600);
+      
       setTimeout(() => {
-        const videoRef = videoRefs.current[lastVideoId];
-        if (videoRef && scrollViewRef.current) {
-          videoRef.measureLayout(
-            // @ts-ignore - findNodeHandle is available
-            scrollViewRef.current.getInnerViewNode?.() || scrollViewRef.current,
-            (x, y) => {
-              scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
-            },
-            () => console.log('Failed to measure video position')
-          );
-        }
-      }, 500);
+        scrollViewRef.current?.scrollTo({ 
+          y: scrollPosition, 
+          animated: true 
+        });
+        setHasScrolled(true);
+      }, 800);
+      
+      console.log(`Scrolling to last watched video: ${lastVideoId} at index ${videoIndex}`);
     }
-  }, [user?.lastWatchedVideo, phaseNumber]);
+  }
+}, [user?.lastWatchedVideo, phaseNumber, videos, hasScrolled]);
 
-  // Save watched videos to localStorage whenever it changes
-  useEffect(() => {
+// Save watched videos to storage whenever it changes
+useEffect(() => {
+  const saveWatchedVideos = async () => {
     const storageKey = `phase_${phaseNumber}_watched`;
-    localStorage.setItem(storageKey, JSON.stringify(Array.from(watchedVideos)));
-    // Dispatch custom event to update footer
-    window.dispatchEvent(new Event('phaseProgressUpdate'));
-  }, [watchedVideos, phaseNumber]);
+    await storage.setItem(storageKey, JSON.stringify(Array.from(watchedVideos)));
+    // Dispatch custom event to update footer (web only)
+    if (Platform.OS === 'web') {
+      window.dispatchEvent(new Event('phaseProgressUpdate'));
+    }
+  };
+  if (watchedVideos.size > 0) {
+    saveWatchedVideos();
+  }
+}, [watchedVideos, phaseNumber]);
 
   const toggleWatched = (videoId: string) => {
     setWatchedVideos(prev => {

@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import React, { useState, useEffect } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { storage } from "../utils/storage";
 
 type Props = {
   phaseNumber: number;
@@ -12,9 +13,10 @@ export default function PhaseProgressFooter({ phaseNumber, totalVideos }: Props)
   const [watchedCount, setWatchedCount] = useState(0);
 
   useEffect(() => {
-    // Load watched videos count from localStorage
+  // Load watched videos count from storage
+  const loadWatchedCount = async () => {
     const storageKey = `phase_${phaseNumber}_watched`;
-    const stored = localStorage.getItem(storageKey);
+    const stored = await storage.getItem(storageKey);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -25,31 +27,25 @@ export default function PhaseProgressFooter({ phaseNumber, totalVideos }: Props)
     } else {
       setWatchedCount(0);
     }
+  };
 
-    // Listen for storage changes to update in real-time
-    const handleStorageChange = () => {
-      const updated = localStorage.getItem(storageKey);
-      if (updated) {
-        try {
-          const parsed = JSON.parse(updated);
-          setWatchedCount(parsed.length);
-        } catch (e) {
-          setWatchedCount(0);
-        }
-      } else {
-        setWatchedCount(0);
-      }
+  loadWatchedCount();
+
+  // Listen for storage changes (web only)
+  if (Platform.OS === 'web') {
+    const handleStorageChange = async () => {
+      await loadWatchedCount();
     };
 
     window.addEventListener('storage', handleStorageChange);
-    // Also listen for custom event when checkbox is toggled
     window.addEventListener('phaseProgressUpdate', handleStorageChange);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('phaseProgressUpdate', handleStorageChange);
     };
-  }, [phaseNumber]);
+  }
+}, [phaseNumber]);
 
   const completionPercentage = totalVideos > 0 
     ? Math.round((watchedCount / totalVideos) * 100)

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { storage } from '../utils/storage';
 
 type UserData = {
   name: string;

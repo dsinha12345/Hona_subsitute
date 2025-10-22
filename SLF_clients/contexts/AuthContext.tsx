@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type UserRole = 'client' | 'admin';
 
@@ -20,21 +22,44 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Storage helper functions
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return await AsyncStorage.getItem(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await AsyncStorage.setItem(key, value);
+    }
+  },
+  async removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await AsyncStorage.removeItem(key);
+    }
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check for existing session on mount
   useEffect(() => {
-    const checkAuth = () => {
-      const savedUser = localStorage.getItem('authUser');
-      if (savedUser) {
-        try {
+    const checkAuth = async () => {
+      try {
+        const savedUser = await storage.getItem('authUser');
+        if (savedUser) {
           setUser(JSON.parse(savedUser));
-        } catch (e) {
-          console.error('Error parsing saved user:', e);
-          localStorage.removeItem('authUser');
         }
+      } catch (e) {
+        console.error('Error loading saved user:', e);
       }
       setIsLoading(false);
     };
@@ -80,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (account) {
       setUser(account.user);
-      localStorage.setItem('authUser', JSON.stringify(account.user));
+      await storage.setItem('authUser', JSON.stringify(account.user));
       setIsLoading(false);
       return { success: true };
     } else {
@@ -102,13 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
-    localStorage.removeItem('authUser');
-    localStorage.removeItem('lastWatchedVideo');
+    await storage.removeItem('authUser');
+    await storage.removeItem('lastWatchedVideo');
     // Clear all phase progress
     for (let i = 1; i <= 15; i++) {
-      localStorage.removeItem(`phase_${i}_watched`);
+      await storage.removeItem(`phase_${i}_watched`);
     }
   };
 
