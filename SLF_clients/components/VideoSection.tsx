@@ -372,11 +372,15 @@ export default function VideoSection({
         newSet.delete(videoId);
       } else {
         newSet.add(videoId);
-        // Update last watched video when user checks a video
-        updateLastWatchedVideo(phaseNumber, videoId);
       }
       return newSet;
     });
+    
+    // Move the updateLastWatchedVideo call outside the setState function
+    if (!watchedVideos.has(videoId)) {
+      // Video is being marked as watched
+      updateLastWatchedVideo(phaseNumber, videoId);
+    }
   };
 
   return (

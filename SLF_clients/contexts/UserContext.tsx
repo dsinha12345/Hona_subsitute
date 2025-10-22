@@ -17,7 +17,7 @@ type UserContextType = {
   user: UserData | null;
   setUser: (user: UserData | null) => void;
   updateCurrentPhase: (phase: number) => void;
-  updateLastWatchedVideo: (phaseNumber: number, videoId: string) => void;
+  updateLastWatchedVideo: (phaseNumber: number, videoId: string) => Promise<void>;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -31,23 +31,41 @@ export function UserProvider({ children }: { children: ReactNode }) {
     caseNumber: "CASE-2024-001",
   });
 
-  const updateCurrentPhase = (phase: number) => {
+  // Load last watched video from storage on mount
+  useEffect(() => {
+    const loadLastWatchedVideo = async () => {
+      try {
+        const stored = await storage.getItem('lastWatchedVideo');
+        if (stored && user) {
+          const lastWatchedVideo = JSON.parse(stored);
+          setUser(prev => prev ? { ...prev, lastWatchedVideo } : null);
+        }
+      } catch (error) {
+        console.error('Error loading last watched video:', error);
+      }
+    };
+    loadLastWatchedVideo();
+  }, []);
+
+  const updateCurrentPhase = async (phase: number) => {
     if (user) {
       setUser({ ...user, currentPhase: phase });
+      // Save to storage for persistence
+      await storage.setItem('currentPhase', String(phase));
       // TODO: Later, make API call to update phase in MongoDB
       // await fetch('/api/user/update-phase', { method: 'POST', body: JSON.stringify({ phase }) });
     }
   };
 
-  const updateLastWatchedVideo = (phaseNumber: number, videoId: string) => {
+  const updateLastWatchedVideo = async (phaseNumber: number, videoId: string) => {
     if (user) {
       const updatedUser = {
         ...user,
         lastWatchedVideo: { phaseNumber, videoId }
       };
       setUser(updatedUser);
-      // Save to localStorage for persistence
-      localStorage.setItem('lastWatchedVideo', JSON.stringify({ phaseNumber, videoId }));
+      // Save to storage for persistence - using cross-platform storage
+      await storage.setItem('lastWatchedVideo', JSON.stringify({ phaseNumber, videoId }));
       // TODO: Later, make API call to update in MongoDB
       // await fetch('/api/user/update-last-video', { method: 'POST', body: JSON.stringify({ phaseNumber, videoId }) });
     }
@@ -70,7 +88,7 @@ export function useUser() {
       user: null,
       setUser: () => {},
       updateCurrentPhase: () => {},
-      updateLastWatchedVideo: () => {},
+      updateLastWatchedVideo: async () => {},
     };
   }
   return context;
