@@ -7,6 +7,9 @@ import { storage } from "../utils/storage";
 // Import WebView for mobile platforms
 import { WebView } from 'react-native-webview';
 
+// Add to imports
+import api from '../services/api';
+
 export type VideoItem = {
   id: string; // Unique identifier for the video
   title: {
@@ -66,7 +69,7 @@ function VideoPlayer({ loomEmbedUrl, title }: { loomEmbedUrl: string; title: str
             transform: "translate(-50%, -50%)",
             textAlign: "center"
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎬</div>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>汐</div>
             <div style={{ 
               color: "#fff", 
               fontSize: "20px", 
@@ -113,7 +116,8 @@ function VideoPlayer({ loomEmbedUrl, title }: { loomEmbedUrl: string; title: str
     if (!loomEmbedUrl || !isValidLoomUrl) {
       return (
         <View style={styles.videoComingSoon}>
-          <Text style={styles.videoComingSoonEmoji}>🎬</Text>
+          <Text style={styles.videoComingSoonEmoji}>汐</Text>
+          <Text style={styles.videoComingSoonEmoji}>汐</Text>
           <Text style={styles.videoComingSoonText}>Video Coming Soon</Text>
           <Text style={styles.videoComingSoonSubtext}>
             This video will be available shortly
@@ -169,7 +173,7 @@ function VideoPlayer({ loomEmbedUrl, title }: { loomEmbedUrl: string; title: str
               if (e.data === 'loom-error') {
                 document.body.innerHTML = \`
                   <div class="error-container">
-                    <div class="error-emoji">🎬</div>
+                    <div class="error-emoji">汐</div>
                     <div class="error-title">Video Coming Soon</div>
                     <div class="error-subtitle">This video will be available shortly</div>
                   </div>
@@ -223,7 +227,7 @@ function VideoPlayer({ loomEmbedUrl, title }: { loomEmbedUrl: string; title: str
           }}
           renderError={() => (
             <View style={styles.videoComingSoon}>
-              <Text style={styles.videoComingSoonEmoji}>🎬</Text>
+              <Text style={styles.videoComingSoonEmoji}>汐</Text>
               <Text style={styles.videoComingSoonText}>Video Coming Soon</Text>
               <Text style={styles.videoComingSoonSubtext}>
                 This video will be available shortly
@@ -238,7 +242,7 @@ function VideoPlayer({ loomEmbedUrl, title }: { loomEmbedUrl: string; title: str
         />
         {hasError && (
           <View style={[styles.videoComingSoon, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
-            <Text style={styles.videoComingSoonEmoji}>🎬</Text>
+            <Text style={styles.videoComingSoonEmoji}>汐</Text>
             <Text style={styles.videoComingSoonText}>Video Coming Soon</Text>
             <Text style={styles.videoComingSoonSubtext}>
               This video will be available shortly
@@ -310,21 +314,31 @@ export default function VideoSection({
     }
   }, []);
 
-  // Load watched videos from storage on mount
+  // Load progress from API on mount
   useEffect(() => {
-    const loadWatchedVideos = async () => {
-      const storageKey = `phase_${phaseNumber}_watched`;
-      const stored = await storage.getItem(storageKey);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setWatchedVideos(new Set(parsed));
-        } catch (e) {
-          console.error("Error loading watched videos:", e);
+    const loadProgress = async () => {
+      try {
+        const response = await api.get(`/api/progress/phase/${phaseNumber}`);
+        const watchedIds = response.data
+          .filter((p: { watched: boolean; videoId: string }) => p.watched)
+          .map((p: { watched: boolean; videoId: string }) => p.videoId);
+        setWatchedVideos(new Set(watchedIds));
+      } catch (error) {
+        console.log('Using local storage for progress');
+        // Fallback to local storage
+        const storageKey = `phase_${phaseNumber}_watched`;
+        const stored = await storage.getItem(storageKey);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setWatchedVideos(new Set(parsed));
+          } catch (e) {
+            console.error("Error loading watched videos from storage:", e);
+          }
         }
       }
     };
-    loadWatchedVideos();
+    loadProgress();
   }, [phaseNumber]);
 
   // Scroll to last watched video if on the same phase
@@ -350,25 +364,15 @@ export default function VideoSection({
     }
   }, [user?.lastWatchedVideo, phaseNumber, videos, hasScrolled]);
 
-  // Save watched videos to storage whenever it changes
-  useEffect(() => {
-    const saveWatchedVideos = async () => {
-      const storageKey = `phase_${phaseNumber}_watched`;
-      await storage.setItem(storageKey, JSON.stringify(Array.from(watchedVideos)));
-      // Dispatch custom event to update footer (web only)
-      if (Platform.OS === 'web') {
-        window.dispatchEvent(new Event('phaseProgressUpdate'));
-      }
-    };
-    if (watchedVideos.size > 0) {
-      saveWatchedVideos();
-    }
-  }, [watchedVideos, phaseNumber]);
+  // Removed the local storage save effect to rely on API for progress
 
-  const toggleWatched = (videoId: string) => {
+  const toggleWatched = async (videoId: string) => {
+    const wasWatched = watchedVideos.has(videoId);
+    
+    // Optimistic update
     setWatchedVideos(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(videoId)) {
+      if (wasWatched) {
         newSet.delete(videoId);
       } else {
         newSet.add(videoId);
@@ -376,10 +380,42 @@ export default function VideoSection({
       return newSet;
     });
     
-    // Move the updateLastWatchedVideo call outside the setState function
-    if (!watchedVideos.has(videoId)) {
-      // Video is being marked as watched
-      updateLastWatchedVideo(phaseNumber, videoId);
+    try {
+      // Sync with backend
+      await api.post(`/api/progress/video/${videoId}/watched`, {
+        phaseNumber,
+        watched: !wasWatched
+      });
+      
+      if (!wasWatched) {
+        // Only update last watched if marking as watched
+        await updateLastWatchedVideo(phaseNumber, videoId);
+      }
+      
+      // Dispatch custom event to update footer (web only)
+      if (Platform.OS === 'web') {
+        window.dispatchEvent(new Event('phaseProgressUpdate'));
+      }
+
+    } catch (error) {
+      console.error('Failed to update progress:', error);
+      Alert.alert(
+        language === 'en' ? 'Error' : 'Error',
+        language === 'en' 
+          ? 'Failed to update video progress. Please try again.'
+          : 'Error al actualizar el progreso del video. Por favor intente de nuevo.',
+        [{ text: 'OK' }]
+      );
+      // Revert on error
+      setWatchedVideos(prev => {
+        const newSet = new Set(prev);
+        if (wasWatched) {
+          newSet.add(videoId);
+        } else {
+          newSet.delete(videoId);
+        }
+        return newSet;
+      });
     }
   };
 

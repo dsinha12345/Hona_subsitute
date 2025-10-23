@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, Platform } from "react-native";
 import React, { useState, useEffect } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { storage } from "../utils/storage";
+// Import API service
+import api from '../services/api';
+import { storage } from "../utils/storage"; // Still import storage for potential fallback if needed, but not primarily used here
 
 type Props = {
   phaseNumber: number;
@@ -13,39 +15,56 @@ export default function PhaseProgressFooter({ phaseNumber, totalVideos }: Props)
   const [watchedCount, setWatchedCount] = useState(0);
 
   useEffect(() => {
-  // Load watched videos count from storage
-  const loadWatchedCount = async () => {
-    const storageKey = `phase_${phaseNumber}_watched`;
-    const stored = await storage.getItem(storageKey);
-    if (stored) {
+    // Function to load watched videos count from the API
+    const loadWatchedCountFromAPI = async () => {
       try {
-        const parsed = JSON.parse(stored);
-        setWatchedCount(parsed.length);
-      } catch (e) {
+        // Use the API endpoint to get progress for the current phase
+        const response = await api.get(`/api/progress/phase/${phaseNumber}`);
+        
+        // Filter the response data to count only watched videos
+        const watchedVideos = response.data.filter(
+          (p: { watched: boolean }) => p.watched
+        );
+        
+        setWatchedCount(watchedVideos.length);
+
+      } catch (error) {
+        console.error("Failed to load phase progress from API:", error);
+        // Fallback or default to 0 on API failure
         setWatchedCount(0);
+        
+        // OPTIONAL: Fallback to local storage if API fails, as you did before.
+        // const storageKey = `phase_${phaseNumber}_watched`;
+        // const stored = await storage.getItem(storageKey);
+        // if (stored) {
+        //   try {
+        //     const parsed = JSON.parse(stored);
+        //     setWatchedCount(parsed.length);
+        //   } catch (e) {
+        //     setWatchedCount(0);
+        //   }
+        // }
       }
-    } else {
-      setWatchedCount(0);
+    };
+
+    loadWatchedCountFromAPI();
+
+    // Listen for custom events triggered by VideoSection.tsx (web only)
+    if (Platform.OS === 'web') {
+      // The `phaseProgressUpdate` event is dispatched in VideoSection.tsx 
+      // after a successful API call to update progress.
+      const handleProgressUpdate = () => {
+        loadWatchedCountFromAPI();
+      };
+
+      // Note: We are no longer listening to 'storage' change as progress is API-driven
+      window.addEventListener('phaseProgressUpdate', handleProgressUpdate);
+
+      return () => {
+        window.removeEventListener('phaseProgressUpdate', handleProgressUpdate);
+      };
     }
-  };
-
-  loadWatchedCount();
-
-  // Listen for storage changes (web only)
-  if (Platform.OS === 'web') {
-    const handleStorageChange = async () => {
-      await loadWatchedCount();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('phaseProgressUpdate', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('phaseProgressUpdate', handleStorageChange);
-    };
-  }
-}, [phaseNumber]);
+  }, [phaseNumber]);
 
   const completionPercentage = totalVideos > 0 
     ? Math.round((watchedCount / totalVideos) * 100)
