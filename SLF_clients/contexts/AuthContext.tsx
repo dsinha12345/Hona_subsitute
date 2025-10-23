@@ -1,152 +1,161 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { storage } from '../utils/storage';
+import api from '../services/api';
 
-export type UserRole = 'client' | 'admin';
+type UserRole = 'client' | 'admin';
 
 type AuthUser = {
   id: string;
   email: string;
   name: string;
   role: UserRole;
-  caseNumber?: string; // Only for clients
+  caseNumber?: string;
 };
 
 type AuthContextType = {
-  user: AuthUser | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
   isAuthenticated: boolean;
+  authUser: AuthUser | null;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  isLoading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Storage helper functions
-const storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    }
-    return await AsyncStorage.getItem(key);
+// Demo accounts fallback
+const DEMO_ACCOUNTS = [
+  {
+    email: 'client@demo.com',
+    password: 'client123',
+    user: {
+      id: 'demo-client-1',
+      email: 'client@demo.com',
+      name: 'John Doe',
+      role: 'client' as UserRole,
+      caseNumber: 'CASE-2024-001',
+    },
   },
-  async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-    } else {
-      await AsyncStorage.setItem(key, value);
-    }
+  {
+    email: 'admin@demo.com',
+    password: 'admin123',
+    user: {
+      id: 'demo-admin-1',
+      email: 'admin@demo.com',
+      name: 'Admin User',
+      role: 'admin' as UserRole,
+    },
   },
-  async removeItem(key: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-    } else {
-      await AsyncStorage.removeItem(key);
-    }
-  }
-};
+];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check for existing session on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const savedUser = await storage.getItem('authUser');
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
-      } catch (e) {
-        console.error('Error loading saved user:', e);
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
+    checkAuthStatus();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-
-    // HARDCODED LOGIN - Replace with API call later
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Demo accounts
-    const demoAccounts = [
-      {
-        email: 'client@demo.com',
-        password: 'client123',
-        user: {
-          id: '1',
-          email: 'client@demo.com',
-          name: 'John Doe',
-          role: 'client' as UserRole,
-          caseNumber: 'CASE-2024-001'
-        }
-      },
-      {
-        email: 'admin@demo.com',
-        password: 'admin123',
-        user: {
-          id: '2',
-          email: 'admin@demo.com',
-          name: 'Admin User',
-          role: 'admin' as UserRole
-        }
+  const checkAuthStatus = async () => {
+    try {
+      const storedUser = await storage.getItem('authUser');
+      const token = await storage.getItem('authToken');
+      
+      if (storedUser && token) {
+        const user = JSON.parse(storedUser);
+        setAuthUser(user);
+        setIsAuthenticated(true);
       }
-    ];
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const account = demoAccounts.find(
+  const loginWithAPI = async (email: string, password: string) => {
+    try {
+      const response = await api.post('/api/auth/login', { email, password });
+      const { token, user } = response.data;
+      
+      // Save token and user
+      await storage.setItem('authToken', token);
+      
+      const authUserData = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        caseNumber: user.caseNumber
+      };
+      
+      await storage.setItem('authUser', JSON.stringify(authUserData));
+      
+      setAuthUser(authUserData);
+      setIsAuthenticated(true);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('API login error:', error);
+      throw error;
+    }
+  };
+
+  const loginWithDemo = async (email: string, password: string) => {
+    const account = DEMO_ACCOUNTS.find(
       acc => acc.email === email && acc.password === password
     );
-
-    if (account) {
-      setUser(account.user);
-      await storage.setItem('authUser', JSON.stringify(account.user));
-      setIsLoading(false);
-      return { success: true };
-    } else {
-      setIsLoading(false);
-      return { success: false, error: 'Invalid email or password' };
+    
+    if (!account) {
+      return { success: false, error: 'Invalid credentials' };
     }
+    
+    await storage.setItem('authUser', JSON.stringify(account.user));
+    setAuthUser(account.user);
+    setIsAuthenticated(true);
+    
+    return { success: true };
+  };
 
-    // TODO: Replace with actual API call
-    // const response = await fetch('/api/auth/login', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ email, password })
-    // });
-    // const data = await response.json();
-    // if (data.success) {
-    //   setUser(data.user);
-    //   localStorage.setItem('authUser', JSON.stringify(data.user));
-    //   return { success: true };
-    // }
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    
+    try {
+      // Try API first
+      const result = await loginWithAPI(email, password);
+      return result;
+    } catch (error: any) {
+      console.log('API login failed, trying demo accounts...');
+      
+      // If network error, fall back to demo accounts
+      if (!error.response || error.code === 'ECONNABORTED') {
+        const demoResult = await loginWithDemo(email, password);
+        if (demoResult.success) {
+          console.log('Logged in with demo account (offline mode)');
+        }
+        return demoResult;
+      }
+      
+      // If API responded with error, return that error
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Login failed' 
+      };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = async () => {
-    setUser(null);
     await storage.removeItem('authUser');
-    await storage.removeItem('lastWatchedVideo');
-    // Clear all phase progress
-    for (let i = 1; i <= 15; i++) {
-      await storage.removeItem(`phase_${i}_watched`);
-    }
+    await storage.removeItem('authToken');
+    setAuthUser(null);
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isLoading, 
-        login, 
-        logout, 
-        isAuthenticated: !!user 
-      }}
-    >
+    <AuthContext.Provider value={{ isAuthenticated, authUser, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

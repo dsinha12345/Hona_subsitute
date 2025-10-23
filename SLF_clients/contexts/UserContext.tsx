@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { storage } from '../utils/storage';
+import api from '../services/api';
 
 type UserData = {
   name: string;
@@ -23,37 +24,61 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  // HARDCODED USER DATA - Replace this with API call later
-  const [user, setUser] = useState<UserData | null>({
-    name: "John Doe",
-    currentPhase: 8, // User is currently in Phase 8: Discovery
-    email: "john.doe@example.com",
-    caseNumber: "CASE-2024-001",
-  });
+  const { authUser, isAuthenticated } = useAuth(); // Load from useAuth
+  const [user, setUser] = useState<UserData | null>(null);
 
-  // Load last watched video from storage on mount
+  // Effect to load user data from API upon authentication status change
   useEffect(() => {
-    const loadLastWatchedVideo = async () => {
+    const loadUser = async () => {
+      // Check if authenticated. If not, clear user state and stop.
+      if (!isAuthenticated || !authUser) {
+        setUser(null);
+        return;
+      }
+
       try {
-        const stored = await storage.getItem('lastWatchedVideo');
-        if (stored && user) {
-          const lastWatchedVideo = JSON.parse(stored);
-          setUser(prev => prev ? { ...prev, lastWatchedVideo } : null);
-        }
+        // Load from API
+        const response = await api.get('/api/user/me'); 
+        
+        // Explicitly map fields, relying on API data
+        setUser({
+          name: response.data.name,
+          currentPhase: response.data.currentPhase,
+          email: response.data.email,
+          caseNumber: response.data.caseNumber,
+          lastWatchedVideo: response.data.lastWatchedVideo // API is the source of truth
+        });
+
       } catch (error) {
-        console.error('Error loading last watched video:', error);
+        console.error('Failed to load user from API:', error);
+        // Clear user on failure to load from API
+        setUser(null); 
       }
     };
-    loadLastWatchedVideo();
-  }, []);
+
+    loadUser();
+  }, [isAuthenticated, authUser]); // Dependencies on auth status
 
   const updateCurrentPhase = async (phase: number) => {
     if (user) {
+      // Optimistic update
+      const oldPhase = user.currentPhase;
       setUser({ ...user, currentPhase: phase });
-      // Save to storage for persistence
-      await storage.setItem('currentPhase', String(phase));
-      // TODO: Later, make API call to update phase in MongoDB
-      // await fetch('/api/user/update-phase', { method: 'POST', body: JSON.stringify({ phase }) });
+      
+      try {
+        // Update phase via API
+        await api.post('/api/user/update-phase', { phase });
+
+        // Dispatch custom event (if needed for other components)
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('userPhaseUpdate'));
+        }
+
+      } catch (error) {
+        console.error('Failed to update current phase:', error);
+        // Revert on error
+        setUser(prev => prev ? { ...prev, currentPhase: oldPhase } : null);
+      }
     }
   };
 
@@ -64,10 +89,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
         lastWatchedVideo: { phaseNumber, videoId }
       };
       setUser(updatedUser);
-      // Save to storage for persistence - using cross-platform storage
+      
+      // Save to storage for offline
       await storage.setItem('lastWatchedVideo', JSON.stringify({ phaseNumber, videoId }));
-      // TODO: Later, make API call to update in MongoDB
-      // await fetch('/api/user/update-last-video', { method: 'POST', body: JSON.stringify({ phaseNumber, videoId }) });
+      
+      // Try to sync with API
+      try {
+        await api.patch('/api/user/last-video', { phaseNumber, videoId });
+      } catch (error) {
+        console.error('Failed to update last watched video:', error);
+        // Continue even if API fails - local storage has it
+      }
     }
   };
 
